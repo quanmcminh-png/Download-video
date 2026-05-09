@@ -10,7 +10,7 @@
         input { padding: 12px; width: 90%; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
         button { padding: 12px 20px; width: 90%; cursor: pointer; background-color: #ff0050; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; }
         button:hover { background-color: #e00045; }
-        #status { margin-top: 20px; font-weight: bold; }
+        #status { margin-top: 20px; font-weight: bold; font-size: 15px; }
         .video-container { margin-top: 20px; display: none; }
         video { width: 100%; border-radius: 10px; margin-bottom: 10px; }
         .download-btn { display: inline-block; padding: 10px 20px; background-color: #00f2fe; color: black; text-decoration: none; border-radius: 8px; font-weight: bold; }
@@ -32,10 +32,9 @@
             z-index: 9999;
             cursor: pointer;
             user-select: none;
-            touch-action: none; /* Cần thiết để kéo thả mượt trên điện thoại */
+            touch-action: none;
         }
 
-        /* Logo TikTok bằng SVG */
         #floatingBtn svg {
             width: 26px;
             height: 26px;
@@ -45,7 +44,6 @@
             animation: glitch-anim 1.5s infinite alternate;
         }
 
-        /* Chữ 12zz hiệu ứng Glitch */
         .glitch-text {
             color: white;
             font-size: 14px;
@@ -54,7 +52,6 @@
             animation: glitch-anim 1.5s infinite alternate-reverse;
         }
 
-        /* Keyframes tạo hiệu ứng nhấp nháy Glitch */
         @keyframes glitch-anim {
             0% { transform: translate(0) }
             20% { transform: translate(-1px, 1px) }
@@ -70,24 +67,73 @@
     <div class="container">
         <h2 style="margin-top: 0;">Trình Tải TikTok</h2>
         <input type="text" id="tiktokUrl" placeholder="Dán link video vào đây...">
-        <button onclick="fetchVideo()">Lấy Video</button>
+        <!-- Nút cơ bản để tải thủ công nếu muốn -->
+        <button onclick="fetchVideo(false)">Lấy Video (Thủ công)</button>
         <div id="status"></div>
 
         <div class="video-container" id="videoResult">
             <video id="videoPlayer" controls autoplay></video>
             <br>
-            <a id="downloadLink" class="download-btn" href="#" target="_blank" download="tiktok_video.mp4">⬇️ Tải Xuống Ngay</a>
+            <a id="downloadLink" class="download-btn" href="#" target="_blank">⬇️ Tải Xuống Ngay</a>
         </div>
     </div>
 
+    <!-- CỬA SỔ NỔI -->
     <div id="floatingBtn">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M448 209.9a210.1 210.1 0 0 1 -122.8-39.3V349.4A162.6 162.6 0 1 1 185 188.3V278.2a74.6 74.6 0 1 0 52.2 71.2V0l88 0a121.2 121.2 0 0 0 1.9 22.2h0A122.2 122.2 0 0 0 381 102.4a121.4 121.4 0 0 0 67 20.1z"/></svg>
         <span class="glitch-text">12zz</span>
     </div>
 
     <script>
-        // --- CHỨC NĂNG TẢI VIDEO ---
-        async function fetchVideo() {
+        // --- HÀM TẠO TÊN FILE TỪ LINK ---
+        function generateFileName(url) {
+            // Cắt link thành các phần, lấy đoạn cuối cùng chứa mã ký tự
+            const urlParts = url.split('?')[0].split('/'); 
+            const lastPart = urlParts[urlParts.length - 1] || urlParts[urlParts.length - 2] || "video";
+            
+            // Chỉ giữ lại chữ cái và số
+            let cleanText = lastPart.replace(/[^a-zA-Z0-9]/g, '');
+            if(!cleanText) cleanText = "tiktok_video";
+            
+            // Rút gọn nếu dài quá (lấy 15 ký tự)
+            if(cleanText.length > 15) cleanText = cleanText.slice(-15);
+            
+            return `12zz_${cleanText}.mp4`;
+        }
+
+        // --- HÀM ÉP TRÌNH DUYỆT TỰ ĐỘNG TẢI XUỐNG ---
+        async function forceDownload(videoUrl, fileName) {
+            try {
+                // Biến video thành Blob (dữ liệu tệp tin) để ra lệnh ép lưu về máy
+                const response = await fetch(videoUrl);
+                const blob = await response.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = blobUrl;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click(); // Tự động bấm nút tải
+                
+                window.URL.revokeObjectURL(blobUrl);
+                document.body.removeChild(a);
+                document.getElementById('status').innerHTML = "<span style='color:green;'>✔️ Tải về hoàn tất! File: " + fileName + "</span>";
+            } catch (error) {
+                // Phương án dự phòng nếu bị lỗi mạng chặn
+                const a = document.createElement('a');
+                a.href = videoUrl;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                document.getElementById('status').innerHTML = "<span style='color:green;'>✔️ Đã bắt đầu tải!</span>";
+            }
+        }
+
+        // --- CHỨC NĂNG LẤY VIDEO ---
+        // Biến autoDownload (true/false) quyết định việc có tự tải xuống luôn hay không
+        async function fetchVideo(autoDownload = false) {
             const urlInput = document.getElementById('tiktokUrl').value.trim();
             const statusDiv = document.getElementById('status');
             const videoResult = document.getElementById('videoResult');
@@ -99,7 +145,7 @@
                 return;
             }
 
-            statusDiv.innerHTML = "<span style='color:blue;'>Đang xử lý, chờ chút nhé 12zz...</span>";
+            statusDiv.innerHTML = "<span style='color:blue;'>⏳ Đang bóc tách video 12zz...</span>";
             videoResult.style.display = 'none';
 
             try {
@@ -107,28 +153,35 @@
                 const result = await response.json();
 
                 if (result.code === 0) {
-                    statusDiv.innerHTML = "<span style='color:green;'>Thành công! Xem và tải bên dưới 👇</span>";
                     const videoUrl = result.data.play;
+                    const finalFileName = generateFileName(urlInput); // Lấy tên từ link
+
+                    // Gắn link vào trình phát video
                     videoPlayer.src = videoUrl;
                     downloadLink.href = videoUrl;
+                    downloadLink.download = finalFileName;
                     videoResult.style.display = 'block';
+
+                    if (autoDownload) {
+                        statusDiv.innerHTML = "<span style='color:blue;'>⏳ Đang tự động lưu file về máy...</span>";
+                        forceDownload(videoUrl, finalFileName); // Gọi hàm ép tải
+                    } else {
+                        statusDiv.innerHTML = "<span style='color:green;'>Thành công! Tên file sẽ là: " + finalFileName + "</span>";
+                    }
                 } else {
                     statusDiv.innerHTML = "<span style='color:red;'>Link bị lỗi hoặc không tìm thấy video.</span>";
                 }
             } catch (error) {
-                statusDiv.innerHTML = "<span style='color:red;'>Mạng chậm hoặc lỗi kết nối.</span>";
+                statusDiv.innerHTML = "<span style='color:red;'>Lỗi kết nối.</span>";
             }
         }
 
-        // --- CHỨC NĂNG KÉO THẢ CỬA SỔ NỔI & TỰ ĐỘNG DÁN LINK ---
+        // --- CHỨC NĂNG CỬA SỔ NỔI 12ZZ ---
         const fab = document.getElementById('floatingBtn');
-        let isDragging = false;
-        let isMoved = false;
-        let offsetX, offsetY;
+        let isDragging = false, isMoved = false, offsetX, offsetY;
 
         const startDrag = (e) => {
-            isDragging = true;
-            isMoved = false;
+            isDragging = true; isMoved = false;
             let clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
             let clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
             offsetX = clientX - fab.getBoundingClientRect().left;
@@ -138,7 +191,7 @@
         const drag = (e) => {
             if (!isDragging) return;
             isMoved = true;
-            e.preventDefault(); // Ngăn cuộn trang khi kéo thả
+            e.preventDefault(); 
             
             let clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
             let clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
@@ -146,7 +199,6 @@
             let newX = clientX - offsetX;
             let newY = clientY - offsetY;
 
-            // Giới hạn không cho nút kéo ra ngoài màn hình
             newX = Math.max(0, Math.min(newX, window.innerWidth - fab.offsetWidth));
             newY = Math.max(0, Math.min(newY, window.innerHeight - fab.offsetHeight));
 
@@ -158,31 +210,28 @@
 
         const stopDrag = () => { isDragging = false; };
 
-        // Gắn sự kiện kéo thả cho cả Chuột (PC) và Cảm ứng (Điện thoại)
         fab.addEventListener('mousedown', startDrag);
         fab.addEventListener('touchstart', startDrag, { passive: false });
-        
         document.addEventListener('mousemove', drag);
         document.addEventListener('touchmove', drag, { passive: false });
-        
         document.addEventListener('mouseup', stopDrag);
         document.addEventListener('touchend', stopDrag);
 
-        // Sự kiện khi BẤM (Click/Tap) vào cửa sổ nổi
+        // KHI BẤM VÀO CỬA SỔ NỔI -> TỰ DÁN LINK VÀ TỰ TẢI
         fab.addEventListener('click', async (e) => {
-            if (isMoved) return; // Nếu đang kéo thả thì không kích hoạt bấm
+            if (isMoved) return; 
             
             try {
-                // Tự động đọc nội dung đã copy trong khay nhớ tạm
                 const text = await navigator.clipboard.readText();
                 if (text.includes("tiktok.com")) {
                     document.getElementById('tiktokUrl').value = text;
-                    fetchVideo(); // Gọi hàm tải video luôn
+                    // Truyền tham số 'true' để báo cho App biết là CẦN TỰ ĐỘNG TẢI
+                    fetchVideo(true); 
                 } else {
                     alert("Hình như bạn chưa copy link TikTok! Hãy vào TikTok copy lại nhé.");
                 }
             } catch (err) {
-                alert("Bạn cần cấp quyền truy cập Khay nhớ tạm cho trang web để dán tự động nhé!");
+                alert("Hãy cấp quyền cho trang web xem khay nhớ tạm để tự dán link nha!");
             }
         });
     </script>
